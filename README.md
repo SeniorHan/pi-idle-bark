@@ -30,7 +30,7 @@ Create `~/.pi/agent/idle-bark.json`:
   "endpoint": "https://api.day.app",
   "deviceKey": "YOUR_BARK_DEVICE_KEY",
   "thresholdMinutes": 5,
-  "backoff": { "baseMinutes": 5, "factor": 2, "capMinutes": 60, "maxRepeats": 0 },
+  "repeat": { "strategy": "exponential", "baseMinutes": 5, "factor": 2, "capMinutes": 60, "maxRepeats": 5 },
   "smart": { "enabled": false },
   "params": { "group": "pi", "sound": "bellina", "level": "timeSensitive" }
 }
@@ -42,8 +42,19 @@ Create `~/.pi/agent/idle-bark.json`:
 
 ### Repeat strategy
 
-- `backoff` — exponential repeat gaps: first gap `baseMinutes` (default 5), then × `factor` (default 2) each time, capped at `capMinutes` (default 60); `maxRepeats` 0 = unlimited (default).
-- Legacy fixed-repeat keys `repeatMinutes` / `maxRepeats` still work (30m × 3) when no `backoff` object is present.
+```json
+"repeat": {
+  "strategy": "exponential",  // or "fixed"
+  "baseMinutes": 5,            // first gap; "fixed" uses it for every gap
+  "factor": 2,                // exponential only: gap ×factor each time
+  "capMinutes": 60,            // exponential only: gap ceiling
+  "maxRepeats": 5             // total repeats; 0 = unlimited
+}
+```
+
+- `exponential` (default): gaps grow 5m → 10m → 20m → … capped at `capMinutes`.
+- `fixed`: constant `baseMinutes` gaps.
+- Legacy top-level `repeatMinutes` / `maxRepeats` (30m × 3) still work when no `repeat` object is present.
 
 ### Smart notifications
 
@@ -57,13 +68,18 @@ Create `~/.pi/agent/idle-bark.json`:
   "includeMeta": true,              // cwd / wait time / pending-question hints
   "language": "auto",              // or an ISO code like "zh" / "en"
   "thinkingLevel": "low",
-  "timeoutMs": 15000
+  "timeoutMs": 30000,
+  "repeatMode": "cached",
+  "prompt": null
 }
 ```
 
-The sub-session runs toolless and in-memory in the same process; one call per waiting period, cached for repeats, template fallback on timeout or parse failure. Note the last few replies are sent to the model provider you configure — keep that in mind for sensitive repos.
+- `repeatMode` — what repeats send: `cached` (default) reuses the first crafted text, `regenerate` re-runs the model per repeat (it knows the reminder index and total, so it can escalate Duolingo-style: "只说一次" → "好吧再通知你一次" → dramatic final ultimatum), `template` falls back to the plain template for repeats.
+- `prompt` — full custom instruction block replacing the built-in one (context/messages are still appended automatically).
 
-Environment overrides (win over the file): `PI_IDLE_BARK_ENABLED`, `PI_IDLE_BARK_ENDPOINT`, `PI_IDLE_BARK_KEY`, `PI_IDLE_BARK_MINUTES`, `PI_IDLE_BARK_SMART`, `PI_IDLE_BARK_SMART_MODEL`, `PI_IDLE_BARK_BACKOFF_BASE_MINUTES`, `PI_IDLE_BARK_BACKOFF_FACTOR`, `PI_IDLE_BARK_BACKOFF_CAP_MINUTES`, `PI_IDLE_BARK_BACKOFF_MAX_REPEATS` (setting any of these switches to exponential mode), plus legacy `PI_IDLE_BARK_REPEAT_MINUTES` / `PI_IDLE_BARK_MAX_REPEATS`. `PI_IDLE_BARK_DEBUG=1` logs smart-craft and repeat diagnostics to `~/idle-bark-debug.log`.
+The sub-session runs toolless and in-memory in the same process; template fallback on timeout or parse failure. Note the last few replies are sent to the model provider you configure — keep that in mind for sensitive repos.
+
+Environment overrides (win over the file): `PI_IDLE_BARK_ENABLED`, `PI_IDLE_BARK_ENDPOINT`, `PI_IDLE_BARK_KEY`, `PI_IDLE_BARK_MINUTES`, `PI_IDLE_BARK_SMART`, `PI_IDLE_BARK_SMART_MODEL`, `PI_IDLE_BARK_REPEAT_STRATEGY`, `PI_IDLE_BARK_REPEAT_BASE_MINUTES`, `PI_IDLE_BARK_REPEAT_FACTOR`, `PI_IDLE_BARK_REPEAT_CAP_MINUTES`, `PI_IDLE_BARK_REPEAT_MAX_REPEATS` (setting any of these activates the `repeat` block), plus legacy `PI_IDLE_BARK_REPEAT_MINUTES` / `PI_IDLE_BARK_MAX_REPEATS`. `PI_IDLE_BARK_DEBUG=1` logs smart-craft and repeat diagnostics to `~/idle-bark-debug.log`.
 
 Environment overrides (win over the file): `PI_IDLE_BARK_ENABLED`, `PI_IDLE_BARK_ENDPOINT`, `PI_IDLE_BARK_KEY`, `PI_IDLE_BARK_MINUTES`, `PI_IDLE_BARK_REPEAT_MINUTES`, `PI_IDLE_BARK_MAX_REPEATS`.
 
