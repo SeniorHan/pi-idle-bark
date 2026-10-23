@@ -353,6 +353,11 @@ export default function (pi: ExtensionAPI) {
   let repeats = 0;
   let recentAssistantTexts: string[] = []; // most recent last
   let questionPending = false;
+  // True once the user has typed during the current run. Machine-initiated turns
+  // (settlement auto-wakes: keel-flow/keel-crew inject via sendCustomMessage, which
+  // never fires the `input` event) leave this false, so their completion is the
+  // machine talking to itself — not something the phone should announce.
+  let sawUserInputThisRun = false;
   let waitingSince = 0;
   let craft: SmartCraft | null = null; // cached for this waiting period
   const totalReminders = repeatGaps.maxRepeats > 0 ? repeatGaps.maxRepeats + 1 : 0; // 0 = unlimited
@@ -509,10 +514,18 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  // Wait point 1: the agent fully settled and is waiting for input.
+  // Wait point 1: the agent fully settled and is waiting for input. Only turns
+  // the user actually took part in may arm a push: a settlement auto-wake turn
+  // ends with the machine reporting to itself ("machine self-talk is not a
+  // notification"), and arming there turns every background task into phone spam.
   pi.on("agent_settled", (event) => {
     if (event.aborted) return; // Escape was just pressed; user is present.
     questionPending = false;
+    if (!sawUserInputThisRun) {
+      dbg("schedule: skipped (machine-initiated turn: no user input this run)");
+      return;
+    }
+    sawUserInputThisRun = false;
     schedule();
   });
 
@@ -524,7 +537,10 @@ export default function (pi: ExtensionAPI) {
   pi.on("ui_prompt_end", () => cancel());
 
   // Any new input or new run means the user came back.
-  pi.on("input", () => cancel());
+  pi.on("input", () => {
+    cancel();
+    sawUserInputThisRun = true;
+  });
   pi.on("before_agent_start", () => cancel());
   pi.on("agent_start", () => cancel());
 

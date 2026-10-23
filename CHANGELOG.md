@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0] — 2026-10-24
+
+### Added
+- **Machine-initiated turns no longer arm pushes**: a turn whose run saw no user `input` (i.e. settlement auto-wakes — keel-flow/keel-crew inject their wake via `sendCustomMessage`, which never fires the `input` event) is the machine reporting to itself, and its `agent_settled` now skips scheduling ("machine self-talk is not a notification"). Previously every background-task settlement re-armed the 5-minute idle timer, so a night of automated turns meant a barrage of Bark pushes to an absent user.
+
+### Changed
+- Idle-rearm semantics unchanged otherwise: user-typed turns (including mid-run steers) still arm the timer; ask dialogs still schedule immediately (a real question is worth a push).
+
 ## [0.3.1] — 2026-10-24
 
 ### Fixed
