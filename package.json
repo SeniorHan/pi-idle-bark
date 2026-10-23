@@ -1,7 +1,7 @@
 {
   "name": "pi-idle-bark",
-  "version": "0.3.0",
-  "description": "Presence-aware Bark notifications for the Pi coding agent \u2014 only pushes to your iPhone if a session has been waiting for you beyond a threshold.",
+  "version": "0.3.1",
+  "description": "Presence-aware Bark notifications for the Pi coding agent — only pushes to your iPhone if a session has been waiting for you beyond a threshold.",
   "type": "module",
   "license": "MIT",
   "keywords": [

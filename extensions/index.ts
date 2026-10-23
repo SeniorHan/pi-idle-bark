@@ -444,8 +444,25 @@ export default function (pi: ExtensionAPI) {
     await templatePush("repeat");
   }
 
+  /**
+   * In scripted runs (`-p` / `--print`, or non-TUI `--mode`) nobody sits at a
+   * terminal waiting: scheduling a push would only keep the Node loop alive
+   * (ref'd timer) and spam the phone after the run already delivered its
+   * result via stdout. Skip scheduling entirely.
+   */
+  function isHeadless (): boolean {
+    const a = process.argv;
+    if (a.includes("-p") || a.includes("--print")) return true;
+    const m = a.indexOf("--mode");
+    return m !== -1 && Boolean(a[m + 1]) && a[m + 1] !== "tui";
+  }
+
   function schedule() {
     cancel();
+    if (isHeadless()) {
+      dbg("schedule: skipped (headless run)");
+      return;
+    }
     waitingSince = Date.now();
     dbg(`schedule: threshold=${thresholdMs}ms backoff=${JSON.stringify(repeatGaps)} smart=${smartEnabled}`);
     timer = setTimeout(async () => {
@@ -463,9 +480,13 @@ export default function (pi: ExtensionAPI) {
           await repeatPush();
           again();
         }, nextGapMs());
+        repeatTimer.unref?.();
       };
       again();
     }, thresholdMs);
+    // A presence notifier must never keep the process alive: in TUI other
+    // handles do, and in scripted runs the run should end with the result.
+    timer.unref?.();
   }
 
   // Track recent assistant texts so pushes carry useful context.
